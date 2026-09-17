@@ -164,7 +164,20 @@ async function readLastReply() {
  */
 export async function* chatStream({ text, thinking = false, signal }) {
   if (!page) await initBrowser();
-  if (busy) throw new Error("browser driver busy: another chat in progress");
+  // 浏览器单页面单会话：busy 时排队等待释放（而非立即报错），
+  // 让并发客户端（opencode/Cursor 等）获得排队体验而非 500。
+  // 默认等待 BUSY_WAIT_MS（30s），超时仍未释放才抛错。
+  const busyWaitMs = Number(process.env.BROWSER_BUSY_WAIT_MS || 30000);
+  const busyStart = Date.now();
+  while (busy) {
+    if (signal?.aborted) {
+      throw new Error("aborted while waiting for browser");
+    }
+    if (Date.now() - busyStart >= busyWaitMs) {
+      throw new Error("browser driver busy: another chat in progress (waited too long)");
+    }
+    await new Promise((r) => setTimeout(r, 200));
+  }
   busy = true;
   try {
     // 先读基线（排除发消息前页面已有内容/页脚容器）
