@@ -1,4 +1,4 @@
-# glm2api
+ # glm2api
 
 GLM 网页版 → OpenAI 兼容网关（匿名模式，无需登录、无需 cookie）。
 
